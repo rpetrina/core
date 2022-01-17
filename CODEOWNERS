@@ -75,6 +75,8 @@ homeassistant/components/apprise/* @caronc
 tests/components/apprise/* @caronc
 homeassistant/components/aprs/* @PhilRW
 tests/components/aprs/* @PhilRW
+homeassistant/components/aquacomputer/* @rpetrina
+tests/components/aquacomputer/* @rpetrina
 homeassistant/components/arcam_fmj/* @elupus
 tests/components/arcam_fmj/* @elupus
 homeassistant/components/arest/* @fabaff
