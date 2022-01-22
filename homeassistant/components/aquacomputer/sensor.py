@@ -1,96 +1,43 @@
 """Platform for sensor integration."""
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.components.aquacomputer.aquacomputer import AquacomputerDevice
 from homeassistant.components.sensor import (
-    SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import TEMP_CELSIUS
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType, StateType
+from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
 )
 
-from .const import DOMAIN
-
-SENSORS: dict[str, SensorEntityDescription] = {
-    "temp": SensorEntityDescription(
-        key="temp",
-        device_class=SensorDeviceClass.TEMPERATURE,
-        native_unit_of_measurement=TEMP_CELSIUS,
-        name="Temperature",
-    ),
-    "flow_rate": SensorEntityDescription(
-        key="flow_rate",
-        device_class="Flow Rate",
-        native_unit_of_measurement="L/h",
-        name="Flow Rate",
-    ),
-    "water_quality": SensorEntityDescription(
-        key="water_quality",
-        device_class="Coolant Quality",
-        native_unit_of_measurement="%",
-        name="Coolant Quality",
-    ),
-}
+from .const import DOMAIN, SENSOR_IDS_TO_UNITS_MAP
 
 
-def setup_platform(
-    hass: HomeAssistant,
-    config: ConfigType,
-    add_entities: AddEntitiesCallback,
-    discovery_info: DiscoveryInfoType | None = None,
-) -> None:
-    """Set up the sensor platform."""
-    add_entities([ExampleSensor()])
+def _sensor_setup(sensor: dict[str, Any]):
+    key = sensor["i"]
+    name = sensor["n"]
+    sensor_units = SENSOR_IDS_TO_UNITS_MAP.get(sensor["u"])
+    # Determine the units for the sensor
+    native_unit_of_measurement = sensor_units[0] if sensor_units else None
+    device_class = sensor_units[1] if sensor_units else None
+    return SensorEntityDescription(
+        key=key,
+        device_class=device_class,
+        native_unit_of_measurement=native_unit_of_measurement,
+        name=name,
+    )
 
 
-class ExampleSensor(SensorEntity):
-    """Representation of a Sensor."""
-
-    _attr_name = "Example Temperature"
-    _attr_native_unit_of_measurement = TEMP_CELSIUS
-    _attr_device_class = SensorDeviceClass.TEMPERATURE
-    _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def update(self) -> None:
-        """Fetch new state data for the sensor.
-
-        This is the only method that should fetch new data for Home Assistant.
-        """
-        self._attr_native_value = 23
-
-
-# async def async_setup_entry(
-#     hass: HomeAssistant,
-#     entry: ConfigEntry,
-#     async_add_entities: AddEntitiesCallback,
-# ) -> None:
-#     """Set up the Airthings sensor."""
-
-#     coordinator: DataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
-#     entities = [
-#         AirthingsHeaterEnergySensor(
-#             coordinator,
-#             airthings_device,
-#             SENSORS[sensor_types],
-#         )
-#         for airthings_device in coordinator.data.values()
-#         for sensor_types in airthings_device.sensor_types
-#         if sensor_types in SENSORS
-#     ]
-#     async_add_entities(entities)
-
-
-class AirthingsHeaterEnergySensor(CoordinatorEntity, SensorEntity):
+class AquacomputerDeviceSensor(CoordinatorEntity, SensorEntity):
     """Representation of a Aquacomputer Sensor device."""
 
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -98,7 +45,7 @@ class AirthingsHeaterEnergySensor(CoordinatorEntity, SensorEntity):
     def __init__(
         self,
         coordinator: DataUpdateCoordinator,
-        airthings_device: AquacomputerDevice,
+        aquacomputer_device: AquacomputerDevice,
         entity_description: SensorEntityDescription,
     ) -> None:
         """Initialize the sensor."""
@@ -106,18 +53,20 @@ class AirthingsHeaterEnergySensor(CoordinatorEntity, SensorEntity):
 
         self.entity_description = entity_description
 
-        self._attr_unique_id = f"{airthings_device.device_id}_{entity_description.key}"
-        self._id = airthings_device.device_id
+        self._attr_unique_id = (
+            f"{aquacomputer_device.device_id}_{entity_description.key}"
+        )
+        self._id = aquacomputer_device.device_id
         self._attr_device_info = DeviceInfo(
-            configuration_url="https://dashboard.airthings.com/",
-            identifiers={(DOMAIN, airthings_device.device_id)},
-            manufacturer="Airthings",
+            configuration_url="https://aquasuite.aquacomputer.de/",
+            identifiers={(DOMAIN, aquacomputer_device.device_id)},
+            manufacturer="Aquacomputer",
         )
 
     @property
     def native_value(self) -> StateType:
         """Return the value reported by the sensor."""
-        return self.coordinator.data[self._id].sensors[self.entity_description.key]
+        return self.coordinator.data[self._id].sensors[self.entity_description.key]["v"]
 
 
 async def async_setup_entry(
@@ -125,17 +74,16 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the Airthings sensor."""
+    """Set up the Aquacomputer sensors."""
 
     coordinator: DataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities = [
-        AirthingsHeaterEnergySensor(
+        AquacomputerDeviceSensor(
             coordinator,
-            airthings_device,
-            SENSORS[sensor_types],
+            aquacomputer_device,
+            _sensor_setup(sensor_type),
         )
-        for airthings_device in coordinator.data.values()
-        for sensor_types in airthings_device.sensor_types
-        if sensor_types in SENSORS
+        for aquacomputer_device in coordinator.data.values()
+        for sensor_type in aquacomputer_device.sensor_types
     ]
     async_add_entities(entities)

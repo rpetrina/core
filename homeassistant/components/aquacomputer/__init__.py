@@ -9,7 +9,7 @@ from homeassistant.components.aquacomputer.aquacomputer import (
     AquacomputerError,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
+from homeassistant.const import CONF_DEVICE_ID, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -20,14 +20,17 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 SCAN_INTERVAL = timedelta(seconds=DEFAULT_SYNC_TIME_S)
-DEVICEKEYS = ["31fe7d75-af10-452c-873c-c1b6e51e7d94"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up aquacomputer from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
-    aquacomputer_session = Aquacomputer(async_get_clientsession(hass), DEVICEKEYS)
+    _LOGGER.debug(f"In async_setup_entry with device: {entry.data[CONF_DEVICE_ID]}")
+
+    aquacomputer_session = Aquacomputer(
+        async_get_clientsession(hass), entry.data[CONF_DEVICE_ID]
+    )
 
     async def _update_method():
         """Get the latest data from Aquacomputer."""

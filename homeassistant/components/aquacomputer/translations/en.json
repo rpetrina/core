@@ -11,9 +11,8 @@
         "step": {
             "user": {
                 "data": {
-                    "host": "Host",
-                    "password": "Password",
-                    "username": "Username"
+                    "device_id": "Device id",
+                    "device_name": "Friendly device name"
                 }
             }
         }

@@ -4,7 +4,6 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 import logging
-from typing import Any
 
 from aiohttp import ClientError
 import async_timeout
@@ -20,26 +19,21 @@ class AquacomputerDevice:
     """Aquacomputer device."""
 
     device_id: str
-    # device_type: str
-    # name: str
-    sensors: list[dict[str, Any | None]]
-    # is_active: bool
+    sensors: dict[str, dict]
 
     @classmethod
     def init_from_response(cls, response):
         """Class method."""
-        return cls(
-            response.get("g"),
-            # response.get("deviceType"),
-            # response.get("segment").get("name"),
-            {sensor: None for sensor in response.get("s")},
-            # response.get("segment").get("isActive"),
-        )
+        sensors_data = response.get("s")
+        sensors_dict = {}
+        for sensor_data in sensors_data:
+            sensors_dict[sensor_data["i"]] = sensor_data
+        return cls(response.get("g"), sensors_dict)
 
     @property
     def sensor_types(self):
         """Sensor types."""
-        return [item.keys() for item in self.sensors]
+        return self.sensors
 
 
 class AquacomputerError(Exception):
@@ -57,25 +51,26 @@ class AquacomputerAuthError(AquacomputerError):
 class Aquacomputer:
     """Aquacomputer data handler."""
 
-    def __init__(self, websession, devicekeys):
+    def __init__(self, websession, devicekey):
         """Init Aquacomputer data handler."""
         self._websession = websession
-        self.devicekeys = devicekeys
+        self.devicekey = devicekey
         self._devices = []
 
     async def update_devices(self):
         """Update data."""
+        _LOGGER.debug("In aquacomputer update_devices")
         if not self._devices:
-            for devicekey in self.devicekeys:
-                response = await self._request(API_URL + devicekey)
-                json_data = await response.json()
-                self._devices.append(AquacomputerDevice.init_from_response(json_data))
+            _LOGGER.debug(f"Devicekey: {self.devicekey}")
+            response = await self._request(API_URL + self.devicekey)
+            json_data = await response.json(content_type="text/html")
+            self._devices.append(AquacomputerDevice.init_from_response(json_data))
 
         res = {}
         for device in self._devices:
             if not device.sensors:
                 response = await self._request(API_URL + device.device_id)
-                json_data = await response.json()
+                json_data = await response.json(content_type="text/html")
                 device.sensors = json_data.get("s")
             res[device.device_id] = device
         return res
